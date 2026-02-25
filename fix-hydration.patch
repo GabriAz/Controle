@@ -1,0 +1,31 @@
+--- src/components/ui/RadarList.tsx
++++ src/components/ui/RadarList.tsx
+@@ -2,7 +2,7 @@
+-import { useEffect, useState, useId } from 'react';
++import { useEffect, useState } from 'react';
+ 
+ export function RadarList({ initialTasks }: { initialTasks: TaskWithSubtasks[] }) {
+     const [tasks, setTasks] = useState(initialTasks);
+     const [now, setNow] = useState(new Date());
+-    const dndId = useId();
+ 
+@@ -88,7 +88,7 @@
+             <DndContext
+-                id={dndId}
++                id="main-dnd-board"
+                 sensors={sensors}
+--- src/components/ui/TaskCard.tsx
++++ src/components/ui/TaskCard.tsx
+@@ -4,7 +4,7 @@
+-import { useRef, useState, useEffect, useId } from 'react';
++import { useRef, useState, useEffect } from 'react';
+ 
+@@ -58,7 +58,6 @@
+     const formRef = useRef<HTMLFormElement>(null);
+     const [isEditing, setIsEditing] = useState(false);
+     const [subtasksLocal, setSubtasksLocal] = useState(task.subtasks || []);
+-    const localDndId = useId();
+ 
+@@ -197,7 +196,7 @@
+-                        <DndContext id={localDndId} sensors={localSensors} collisionDetection={closestCenter} onDragEnd={handleSubtaskDragEnd}>
++                        <DndContext id={`subtasks-dnd-${task.id}`} sensors={localSensors} collisionDetection={closestCenter} onDragEnd={handleSubtaskDragEnd}>

@@ -1,0 +1,57 @@
+// This is your Prisma schema file.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Task {
+  id               Int       @id @default(autoincrement())
+  taskRef          String    @unique // e.g. #ANT-102
+  title            String
+  priority         Int       // 1 (P1) to 4 (P4)
+  deadline         DateTime
+  snoozedUntil     DateTime? 
+  status           String    @default("PENDING") // PENDING, EXECUTING, COMPLETED
+  assignee         String?   // Campo legado/nome visual do responsável
+  assigneeId       String?   // Relação Oficial com System User
+  SystemUser       User?     @relation("UserTasks", fields: [assigneeId], references: [id])
+  googleEventId    String?   @unique
+  
+  // Adjacency List & Lexical Position
+  parentId         Int?
+  parent           Task?     @relation("TaskToSubtask", fields: [parentId], references: [id], onDelete: Cascade)
+  subtasks         Task[]    @relation("TaskToSubtask")
+  positionOrder    Float     @default(0.0)
+  
+  // Custom notification flags tracking
+  notified3Days    Boolean   @default(false)
+  notified2Days    Boolean   @default(false)
+  notified1Day     Boolean   @default(false)
+  notified3Hours   Boolean   @default(false)
+  notified2Hours   Boolean   @default(false)
+  notified1Hour    Boolean   @default(false)
+  notified30Mins   Boolean   @default(false)
+
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+}
+
+model User {
+  id               String    @id @default(uuid())
+  name             String
+  email            String    @unique
+  passwordHash     String
+  role             String    @default("MEMBER") // ADMIN or MEMBER
+  active           Boolean   @default(true)
+  
+  tasks            Task[]    @relation("UserTasks")
+  
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+}
+
+
