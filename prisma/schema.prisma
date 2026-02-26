@@ -20,6 +20,7 @@ model Task {
   assigneeId       String?   // Relação Oficial com System User
   SystemUser       User?     @relation("UserTasks", fields: [assigneeId], references: [id])
   googleEventId    String?   @unique
+  googleTaskId     String?   @unique
   
   // Adjacency List & Lexical Position
   parentId         Int?

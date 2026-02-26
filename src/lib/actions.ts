@@ -2,6 +2,7 @@
 import { prisma } from '@/lib/prisma';
 import { revalidatePath } from 'next/cache';
 import { createGoogleEvent, updateGoogleEvent, deleteGoogleEvent } from '@/lib/google-calendar';
+import { createGoogleTask, updateGoogleTask, deleteGoogleTask } from '@/lib/google-tasks';
 
 export async function createTaskAction(prevState: unknown, formData: FormData) {
     const title = formData.get('title') as string;
@@ -46,12 +47,18 @@ export async function createTaskAction(prevState: unknown, formData: FormData) {
             }
         });
 
-        // Injeção silenciada no G-Calendar
+        // Injeção silenciada no G-Calendar e G-Tasks
         const gEvent = await createGoogleEvent(newTask, assigneeName);
-        if (gEvent?.id) {
+        const gTask = await createGoogleTask(newTask, assigneeName);
+
+        let updateData: any = {};
+        if (gEvent?.id) updateData.googleEventId = gEvent.id;
+        if (gTask?.id) updateData.googleTaskId = gTask.id;
+
+        if (Object.keys(updateData).length > 0) {
             await prisma.task.update({
                 where: { id: newTask.id },
-                data: { googleEventId: gEvent.id } as any
+                data: updateData
             });
         }
 
@@ -119,6 +126,18 @@ export async function updateTask(id: number, formData: FormData) {
                 });
             }
         }
+
+        if ((existingTask as any)?.googleTaskId) {
+            await updateGoogleTask((existingTask as any).googleTaskId, updatedTask, assigneeName);
+        } else {
+            const gTask = await createGoogleTask(updatedTask, assigneeName);
+            if (gTask?.id) {
+                await prisma.task.update({
+                    where: { id },
+                    data: { googleTaskId: gTask.id } as any
+                });
+            }
+        }
         revalidatePath('/');
         return { success: true };
     } catch {
@@ -127,10 +146,18 @@ export async function updateTask(id: number, formData: FormData) {
 }
 
 export async function toggleTaskStatus(id: number, status: string) {
-    await prisma.task.update({
+    const updatedTask = await prisma.task.update({
         where: { id },
         data: { status }
     });
+
+    if ((updatedTask as any)?.googleTaskId) {
+        await updateGoogleTask((updatedTask as any).googleTaskId, updatedTask, updatedTask.assignee);
+    }
+    if ((updatedTask as any)?.googleEventId) {
+        await updateGoogleEvent((updatedTask as any).googleEventId, updatedTask, updatedTask.assignee);
+    }
+
     revalidatePath('/');
 }
 
@@ -258,6 +285,9 @@ export async function deleteTask(id: number) {
 
         if ((task as any)?.googleEventId) {
             await deleteGoogleEvent((task as any).googleEventId);
+        }
+        if ((task as any)?.googleTaskId) {
+            await deleteGoogleTask((task as any).googleTaskId);
         }
         revalidatePath('/');
         return { success: true };
