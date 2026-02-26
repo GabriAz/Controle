@@ -21,45 +21,45 @@ export async function GET(request: Request) {
 
         const hoursLeft = (task.deadline.getTime() - now.getTime()) / 3600000;
 
-        // Check 30 minutes
+        // Check 30 minutes (Safety alert)
         if (hoursLeft <= 0.5 && !task.notified30Mins) {
-            await sendNotification(task, "🚨 MODO CRÍTICO: 30 minutos ou menos!");
+            await sendNotification(task, "🚨 30 minutos antes do compromisso!");
             await prisma.task.update({ where: { id: task.id }, data: { notified30Mins: true } });
             sent.push({ id: task.id, step: '30m' });
         }
         // Check 1 hour
         else if (hoursLeft > 0.5 && hoursLeft <= 1 && !task.notified1Hour) {
-            await sendNotification(task, "1 hora restante para o prazo.");
+            await sendNotification(task, "1h antes do compromisso");
             await prisma.task.update({ where: { id: task.id }, data: { notified1Hour: true } });
             sent.push({ id: task.id, step: '1h' });
         }
         // Check 2 hours
         else if (hoursLeft > 1 && hoursLeft <= 2 && !task.notified2Hours) {
-            await sendNotification(task, "2 horas restantes.");
+            await sendNotification(task, "2h antes do compromisso");
             await prisma.task.update({ where: { id: task.id }, data: { notified2Hours: true } });
             sent.push({ id: task.id, step: '2h' });
         }
         // Check 3 hours
         else if (hoursLeft > 2 && hoursLeft <= 3 && !task.notified3Hours) {
-            await sendNotification(task, "3 horas restantes. FASE DE PREPARAÇÃO.");
+            await sendNotification(task, "3h antes do compromisso");
             await prisma.task.update({ where: { id: task.id }, data: { notified3Hours: true } });
             sent.push({ id: task.id, step: '3h' });
         }
         // Check 1 Day
         else if (hoursLeft > 3 && hoursLeft <= 24 && !task.notified1Day) {
-            await sendNotification(task, "1 dia para o prazo.");
+            await sendNotification(task, "1 dia antes do compromisso");
             await prisma.task.update({ where: { id: task.id }, data: { notified1Day: true } });
             sent.push({ id: task.id, step: '1d' });
         }
         // Check 2 Days
         else if (hoursLeft > 24 && hoursLeft <= 48 && !task.notified2Days) {
-            await sendNotification(task, "2 dias para o prazo.");
+            await sendNotification(task, "2 dias antes do compromisso");
             await prisma.task.update({ where: { id: task.id }, data: { notified2Days: true } });
             sent.push({ id: task.id, step: '2d' });
         }
         // Check 3 Days
         else if (hoursLeft > 48 && hoursLeft <= 72 && !task.notified3Days) {
-            await sendNotification(task, "3 dias para o prazo. FASE DE CONSCIÊNCIA.");
+            await sendNotification(task, "3 dias antes do compromisso");
             await prisma.task.update({ where: { id: task.id }, data: { notified3Days: true } });
             sent.push({ id: task.id, step: '3d' });
         }
