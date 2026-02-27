@@ -1,4 +1,4 @@
-import { prisma } from './src/lib/db';
+import { prisma } from './src/lib/prisma';
 import { calculateUrgency } from './src/lib/utils/urgency';
 
 async function main() {
