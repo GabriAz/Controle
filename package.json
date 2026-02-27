@@ -24,7 +24,7 @@
   "devDependencies": {
     "@eslint/eslintrc": "^3.3.4",
     "@eslint/js": "^10.0.1",
-    "@prisma/client": "^7.4.1",
+    "@prisma/client": "^6.2.1",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
@@ -34,7 +34,7 @@
     "eslint-plugin-next": "^0.0.0",
     "eslint-plugin-react": "^7.37.5",
     "eslint-plugin-react-hooks": "^7.0.1",
-    "prisma": "^7.4.1",
+    "prisma": "^6.2.1",
     "tailwindcss": "^4",
     "ts-node": "^10.9.2",
     "typescript": "^5",
