@@ -1,6 +1,9 @@
 # syntax=docker/dockerfile:1
 
 FROM node:20-bookworm-slim AS base
+RUN apt-get update -y \
+  && apt-get install -y --no-install-recommends openssl \
+  && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 
 FROM base AS deps
@@ -24,6 +27,7 @@ RUN groupadd --system --gid 1001 nextjs \
 
 COPY package.json package-lock.json ./
 COPY --from=builder /app/node_modules ./node_modules
+RUN chown -R nextjs:nextjs /app/node_modules
 RUN NPM_CONFIG_LEGACY_PEER_DEPS=true npm prune --omit=dev && npm cache clean --force
 
 COPY --from=builder /app/.next ./.next
