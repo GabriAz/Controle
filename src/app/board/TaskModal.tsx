@@ -2,7 +2,7 @@
 import { Task } from '@prisma/client';
 import { calculateUrgency } from '@/lib/utils/urgency';
 
-type TaskWithSubtasks = Task & { subtasks?: Task[], Creator?: { name: string } };
+type TaskWithSubtasks = Task & { subtasks?: Task[], Creator?: { name: string } | null };
 
 interface TaskModalProps {
     // ... existing props ...

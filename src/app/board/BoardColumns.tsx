@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react';
 import { TaskModal } from './TaskModal';
 import { useSession } from "next-auth/react";
 
-type TaskWithSubtasks = Task & { subtasks?: Task[], Creator?: { name: string } };
+type TaskWithSubtasks = Task & { subtasks?: Task[], Creator?: { name: string } | null };
 
 function BoardCard({ task, urgency, onTaskClick }: { task: TaskWithSubtasks, urgency: number, onTaskClick: (t: TaskWithSubtasks) => void }) {
     // ... existing card code ... (keeping it for the tool to match)
