@@ -11,7 +11,7 @@ export default async function AdminUsersPage({
 }) {
     const users = await prisma.user.findMany({
         orderBy: { createdAt: "desc" },
-        select: { id: true, name: true, email: true, role: true, active: true, createdAt: true },
+        select: { id: true, name: true, email: true, role: true, active: true, canSeeOthersTasks: true, createdAt: true },
     });
 
     async function clientAction(formData: FormData) {
@@ -66,6 +66,11 @@ export default async function AdminUsersPage({
                             </select>
                         </div>
 
+                        <div className="flex items-center gap-2 py-1">
+                            <input type="checkbox" name="canSeeOthersTasks" id="canSeeOthersTasks" defaultChecked className="w-4 h-4 accent-slate-900 rounded" />
+                            <label htmlFor="canSeeOthersTasks" className="text-[10px] font-mono font-bold text-slate-600 uppercase cursor-pointer">Ver atividades de outros</label>
+                        </div>
+
                         <button type="submit" className="h-9 w-full bg-slate-900 text-white font-mono text-[10px] font-bold rounded hover:bg-slate-800 transition-colors uppercase tracking-widest mt-2 disabled:opacity-50">
                             Gerar Acesso
                         </button>
@@ -81,8 +86,8 @@ export default async function AdminUsersPage({
                                 <tr className="bg-slate-100 border-b border-slate-200">
                                     <th className="p-3 text-[10px] font-mono text-slate-500 uppercase">Nome</th>
                                     <th className="p-3 text-[10px] font-mono text-slate-500 uppercase">E-mail</th>
+                                    <th className="p-3 text-[10px] font-mono text-slate-500 uppercase text-center">Inspecionar?</th>
                                     <th className="p-3 text-[10px] font-mono text-slate-500 uppercase">Role</th>
-                                    <th className="p-3 text-[10px] font-mono text-slate-500 uppercase">Status</th>
                                     <th className="p-3 text-[10px] font-mono text-slate-500 uppercase text-right">Ações</th>
                                 </tr>
                             </thead>

@@ -20,22 +20,35 @@ import {
 } from '@dnd-kit/sortable';
 import { updateTaskPositions } from '@/lib/actions';
 
+import { useSession } from "next-auth/react";
+
 export type TaskWithSubtasks = Task & { subtasks?: Task[] };
 
 export function RadarList({ initialTasks }: { initialTasks: TaskWithSubtasks[] }) {
+    const { data: session } = useSession();
     const [tasks, setTasks] = useState(initialTasks);
     const [now, setNow] = useState(new Date());
+    const [showOnlyMine, setShowOnlyMine] = useState(false);
+
+    const currentUser = session?.user as any;
+    const canSeeOthers = currentUser?.canSeeOthersTasks !== false;
 
     const sensors = useSensors(
         useSensor(PointerSensor, {
             activationConstraint: {
-                distance: 5, // Evita disparar drag sem querer ao clicar no item
+                distance: 5,
             },
         }),
         useSensor(KeyboardSensor, {
             coordinateGetter: sortableKeyboardCoordinates,
         })
     );
+
+    useEffect(() => {
+        if (!canSeeOthers) {
+            setShowOnlyMine(true);
+        }
+    }, [canSeeOthers]);
 
     useEffect(() => {
         const interval = setInterval(() => {
@@ -50,22 +63,44 @@ export function RadarList({ initialTasks }: { initialTasks: TaskWithSubtasks[] }
 
     const handleDragEnd = async (event: DragEndEvent) => {
         const { active, over } = event;
-
         if (over && active.id !== over.id) {
             setTasks((items) => {
                 const oldIndex = items.findIndex((item) => item.id === active.id);
                 const newIndex = items.findIndex((item) => item.id === over.id);
-
                 const newArray = arrayMove(items, oldIndex, newIndex);
-
-                // Bulk update nas posições (A ordem visual vira lei absoluta, atualizando o Lexical DB)
                 const updates = newArray.map((t, idx) => ({ id: t.id, position: idx }));
                 updateTaskPositions(updates);
-
                 return newArray;
             });
         }
     };
+
+    const filterTasks = (taskList: TaskWithSubtasks[]) => {
+        if (!showOnlyMine || !session?.user) return taskList;
+        const currentUserId = (session.user as any).id;
+        return taskList.filter(t => t.assigneeId === currentUserId);
+    };
+
+    const displayedTasks = filterTasks(tasks);
+
+    if (displayedTasks.length === 0 && tasks.length > 0 && showOnlyMine) {
+        return (
+            <div className="w-full mt-4">
+                <div className="flex items-center justify-between mb-2 px-2 border-b border-slate-200 pb-2">
+                    <h2 className="text-xs font-mono tracking-widest text-slate-500 uppercase">System Radar</h2>
+                    <button
+                        onClick={() => setShowOnlyMine(false)}
+                        className="text-[9px] font-mono px-2 py-0.5 bg-white border border-slate-200 text-slate-500 rounded-sm hover:bg-slate-50"
+                    >
+                        🌍 Ver Tudo
+                    </button>
+                </div>
+                <div className="w-full p-8 text-center border border-slate-200 bg-slate-50 rounded-lg">
+                    <h3 className="text-sm font-mono tracking-tight text-slate-400 uppercase">Nenhuma tarefa atribuída a você</h3>
+                </div>
+            </div>
+        );
+    }
 
     if (tasks.length === 0) {
         return (
@@ -81,8 +116,25 @@ export function RadarList({ initialTasks }: { initialTasks: TaskWithSubtasks[] }
     return (
         <div aria-label="Radar list" className="w-full flex flex-col mt-4">
             <div className="flex items-center justify-between mb-2 px-2 border-b border-slate-200 pb-2">
-                <h2 className="text-xs font-mono tracking-widest text-slate-500 uppercase">System Radar</h2>
-                <span className="text-[10px] font-mono px-2 py-0.5 bg-blue-50 border border-blue-200 text-blue-600 rounded-sm">[{tasks.length} THREADS]</span>
+                <div className="flex items-center gap-3">
+                    <h2 className="text-xs font-mono tracking-widest text-slate-500 uppercase">System Radar</h2>
+                    {canSeeOthers ? (
+                        <button
+                            onClick={() => setShowOnlyMine(!showOnlyMine)}
+                            className={`text-[9px] font-mono font-bold uppercase tracking-widest px-2 py-0.5 rounded border transition-all ${showOnlyMine
+                                ? 'bg-blue-600 text-white border-blue-700'
+                                : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'
+                                }`}
+                        >
+                            {showOnlyMine ? '👀 Só as Minhas' : '🌍 Todas'}
+                        </button>
+                    ) : (
+                        <span className="text-[9px] font-mono font-bold uppercase tracking-widest px-2 py-0.5 bg-blue-50 text-blue-600 border border-blue-100 rounded">
+                            MISSAO_PESSOAL
+                        </span>
+                    )}
+                </div>
+                <span className="text-[10px] font-mono px-2 py-0.5 bg-blue-50 border border-blue-200 text-blue-600 rounded-sm">[{displayedTasks.length} THREADS]</span>
             </div>
 
             <DndContext
@@ -93,10 +145,10 @@ export function RadarList({ initialTasks }: { initialTasks: TaskWithSubtasks[] }
             >
                 <div className="flex flex-col border border-slate-200 bg-white rounded-lg overflow-hidden shadow-sm">
                     <SortableContext
-                        items={tasks.map(t => t.id)}
+                        items={displayedTasks.map(t => t.id)}
                         strategy={verticalListSortingStrategy}
                     >
-                        {tasks.map((task, index) => (
+                        {displayedTasks.map((task, index) => (
                             <TaskCard
                                 key={task.id}
                                 task={task as TaskWithSubtasks}

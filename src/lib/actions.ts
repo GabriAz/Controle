@@ -5,6 +5,7 @@ import { createGoogleEvent, updateGoogleEvent, deleteGoogleEvent } from '@/lib/g
 import { createGoogleTask, updateGoogleTask, deleteGoogleTask } from '@/lib/google-tasks';
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { sendTelegramAlert } from '@/lib/telegram';
 
 export async function createTaskAction(prevState: unknown, formData: FormData) {
     console.log(`\n\n[ACTION TRIGGERED] => createTaskAction called at ${new Date().toISOString()} \n\n`);
@@ -30,10 +31,23 @@ export async function createTaskAction(prevState: unknown, formData: FormData) {
     const nextId = (lastTask?.id || 0) + 1;
     const taskRef = `#CTRL-${nextId}`;
 
+    const session = await getServerSession(authOptions) as any;
+    const currentUser = session?.user;
+
+    if (!currentUser) {
+        return { error: "Usuário não autenticado." };
+    }
+
+    let finalAssigneeId = assigneeId;
+    if (currentUser.role === 'MEMBER') {
+        // Members can only assign tasks to themselves
+        finalAssigneeId = currentUser.id;
+    }
+
     // Get User Name to preserve legacy text field
     let assigneeName = null;
-    if (assigneeId) {
-        const u = await prisma.user.findUnique({ where: { id: assigneeId } });
+    if (finalAssigneeId) {
+        const u = await prisma.user.findUnique({ where: { id: finalAssigneeId } });
         assigneeName = u?.name || null;
     }
 
@@ -45,7 +59,8 @@ export async function createTaskAction(prevState: unknown, formData: FormData) {
                 priority,
                 deadline,
                 assignee: assigneeName,
-                assigneeId: assigneeId,
+                assigneeId: finalAssigneeId,
+                createdById: currentUser.id,
                 status: "PENDING"
             }
         });
@@ -58,47 +73,22 @@ export async function createTaskAction(prevState: unknown, formData: FormData) {
         if (gEvent?.id) updateData.googleEventId = gEvent.id;
         if (gTask?.id) updateData.googleTaskId = gTask.id;
 
-        if (Object.keys(updateData).length > 0) {
-            await prisma.task.update({
-                where: { id: newTask.id },
-                data: updateData
-            });
-        }
+        const creatorName = currentUser.name || "Sistema";
 
-        // Telegram Notification on Creation
-        const session = await getServerSession(authOptions) as any;
-        const creatorName = session?.user?.name || "Sistema";
-        const botToken = process.env.TELEGRAM_BOT_TOKEN;
-        const chatId = process.env.TELEGRAM_CHAT_ID;
+        // Telegram Notification via Centralized Alert
+        await sendTelegramAlert({
+            task: newTask,
+            type: 'CREATED',
+            user: creatorName
+        });
 
-        if (botToken && chatId) {
-            try {
-                console.log(`[TELEGRAM DEBUG] Attempting to send creation alert. Token starts with: ${botToken.substring(0, 5)}...`);
-                const formattedDate = new Date(deadline).toLocaleString('pt-BR');
-                const response = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        chat_id: chatId,
-                        text: `🆕 *Nova Tarefa Adicionada*\n\n*${taskRef}*: ${title}\n*Criada por*: ${creatorName}\n*Responsável*: ${assigneeName || 'Não atribuído'}\n*Prazo*: ${formattedDate}`,
-                        parse_mode: 'Markdown'
-                    })
-                });
-                const responseData = await response.json();
-                console.log(`[TELEGRAM DEBUG] API Response Status: ${response.status}`, responseData);
-            } catch (e) {
-                console.error("[TELEGRAM DEBUG] Fetch Failed to send creation alert", e);
-            }
-        } else {
-            console.log(`[TELEGRAM DEBUG] Missing Env! botToken: ${!!botToken}, chatId: ${!!chatId}`);
-        }
-
-        revalidatePath('/');
-        return { success: true };
     } catch (err) {
         console.error("CreateTaskAction Error:", err);
         return { error: "Failed to create task" };
     }
+
+    revalidatePath('/');
+    return { success: true };
 }
 
 export async function fetchActiveUsers() {
@@ -110,31 +100,62 @@ export async function fetchActiveUsers() {
 }
 
 export async function updateTask(id: number, formData: FormData) {
-    const title = formData.get('title') as string;
-    const priorityStr = formData.get('priority') as string;
-    const dateStr = formData.get('date') as string;
-    const timeStr = formData.get('time') as string;
-    const assigneeIdStr = formData.get('assigneeId') as string;
-    const manualAssignee = formData.get('assignee') as string;
+    const session = await getServerSession(authOptions) as any;
+    const currentUser = session?.user;
 
-    if (!title || !priorityStr || !dateStr || !timeStr) {
-        return { error: "Todos os campos são obrigatórios." };
+    if (!currentUser) {
+        return { error: "Usuário não autenticado." };
     }
-
-    const assigneeId = assigneeIdStr ? assigneeIdStr : null;
-
-    // Get User Name to preserve legacy text field if ID is passed
-    let assigneeName = manualAssignee || null;
-    if (assigneeId) {
-        const u = await prisma.user.findUnique({ where: { id: assigneeId } });
-        if (u?.name) assigneeName = u.name;
-    }
-
-    const priority = parseInt(priorityStr, 10);
-    const deadline = new Date(`${dateStr}T${timeStr}:00`);
 
     try {
         const existingTask = await prisma.task.findUnique({ where: { id } });
+        if (!existingTask) return { error: "Tarefa não encontrada." };
+
+        const title = formData.get('title') as string;
+        const priorityStr = formData.get('priority') as string;
+        const dateStr = formData.get('date') as string;
+        const timeStr = formData.get('time') as string;
+
+        const hasAssigneeId = formData.has('assigneeId');
+        const assigneeIdStr = formData.get('assigneeId') as string;
+
+        const hasManualAssignee = formData.has('assignee');
+        const manualAssignee = formData.get('assignee') as string;
+
+        if (!title || !priorityStr || !dateStr || !timeStr) {
+            return { error: "Todos os campos core são obrigatórios." };
+        }
+
+        let finalAssigneeId = existingTask.assigneeId;
+        if (hasAssigneeId) {
+            const requestedId = assigneeIdStr ? assigneeIdStr : null;
+            if (currentUser.role === 'MEMBER' && requestedId && requestedId !== currentUser.id) {
+                return { error: "Membros só podem atribuir tarefas a si mesmos." };
+            }
+            finalAssigneeId = requestedId;
+        }
+
+        let finalAssigneeName = existingTask.assignee;
+        if (hasManualAssignee) {
+            if (currentUser.role === 'MEMBER' && manualAssignee !== existingTask.assignee) {
+                // Even if they change the visual name, we might want to block it? 
+                // For now, let's just allow it if we didn't block it above, 
+                // but typically members shouldn't be changing names of others.
+                // We already disabled the input in the UI.
+                finalAssigneeName = manualAssignee;
+            } else {
+                finalAssigneeName = manualAssignee || null;
+            }
+        }
+
+        // Sync name if ID was changed
+        if (hasAssigneeId && finalAssigneeId) {
+            const u = await prisma.user.findUnique({ where: { id: finalAssigneeId } });
+            if (u?.name) finalAssigneeName = u.name;
+        }
+
+        const priority = parseInt(priorityStr, 10);
+        const deadline = new Date(`${dateStr}T${timeStr}:00`);
 
         const updatedTask = await prisma.task.update({
             where: { id },
@@ -142,15 +163,15 @@ export async function updateTask(id: number, formData: FormData) {
                 title,
                 priority,
                 deadline,
-                assignee: assigneeName,
-                assigneeId: assigneeId,
+                assignee: finalAssigneeName,
+                assigneeId: finalAssigneeId,
             }
         });
 
         if ((existingTask as any)?.googleEventId) {
-            await updateGoogleEvent((existingTask as any).googleEventId, updatedTask, assigneeName);
+            await updateGoogleEvent((existingTask as any).googleEventId, updatedTask, finalAssigneeName);
         } else {
-            const gEvent = await createGoogleEvent(updatedTask, assigneeName);
+            const gEvent = await createGoogleEvent(updatedTask, finalAssigneeName);
             if (gEvent?.id) {
                 await prisma.task.update({
                     where: { id },
@@ -160,9 +181,9 @@ export async function updateTask(id: number, formData: FormData) {
         }
 
         if ((existingTask as any)?.googleTaskId) {
-            await updateGoogleTask((existingTask as any).googleTaskId, updatedTask, assigneeName);
+            await updateGoogleTask((existingTask as any).googleTaskId, updatedTask, finalAssigneeName);
         } else {
-            const gTask = await createGoogleTask(updatedTask, assigneeName);
+            const gTask = await createGoogleTask(updatedTask, finalAssigneeName);
             if (gTask?.id) {
                 await prisma.task.update({
                     where: { id },
@@ -170,9 +191,34 @@ export async function updateTask(id: number, formData: FormData) {
                 });
             }
         }
+
+        // Telegram Notification for Update
+        const session = await getServerSession(authOptions) as any;
+        const editorName = session?.user?.name || "Sistema";
+        const changes: string[] = [];
+
+        if (title !== undefined && title !== existingTask.title) changes.push(`Título: ${existingTask.title} -> ${title}`);
+        if (priority !== undefined && priority !== (existingTask as any).priority) changes.push(`Prioridade: P${(existingTask as any).priority} -> P${priority}`);
+        if (deadline !== undefined && deadline.getTime() !== (existingTask as any).deadline.getTime()) {
+            changes.push(`Prazo: ${new Date((existingTask as any).deadline).toLocaleString('pt-BR')} -> ${deadline.toLocaleString('pt-BR')}`);
+        }
+        if (hasAssigneeId && finalAssigneeId !== (existingTask as any).assigneeId) {
+            changes.push(`Responsável: ${existingTask.assignee || 'Não atribuído'} -> ${finalAssigneeName || 'Não atribuído'}`);
+        }
+
+        if (changes.length > 0) {
+            await sendTelegramAlert({
+                task: updatedTask,
+                type: 'UPDATED',
+                user: editorName,
+                changes
+            });
+        }
+
         revalidatePath('/');
         return { success: true };
-    } catch {
+    } catch (err) {
+        console.error("Error updating task: ", err);
         return { error: "Failed to update task" };
     }
 }
@@ -183,12 +229,18 @@ export async function toggleTaskStatus(id: number, status: string) {
         data: { status }
     });
 
-    if ((updatedTask as any)?.googleTaskId) {
-        await updateGoogleTask((updatedTask as any).googleTaskId, updatedTask, updatedTask.assignee);
-    }
     if ((updatedTask as any)?.googleEventId) {
         await updateGoogleEvent((updatedTask as any).googleEventId, updatedTask, updatedTask.assignee);
     }
+
+    const session = await getServerSession(authOptions) as any;
+    const editorName = session?.user?.name || "Sistema";
+
+    await sendTelegramAlert({
+        task: updatedTask,
+        type: updatedTask.status === 'COMPLETED' ? 'COMPLETED' : 'REACTIVATED',
+        user: editorName
+    });
 
     revalidatePath('/');
 }
@@ -218,18 +270,29 @@ export async function snoozeTask(id: number, hoursToAdd: number) {
 }
 
 export async function fetchPendingTasks() {
+    const session = await getServerSession(authOptions) as any;
+    const currentUser = session?.user;
+
+    const where: any = {
+        status: { not: "COMPLETED" },
+        parentId: null
+    };
+
+    if (currentUser && currentUser.role !== 'ADMIN') {
+        const user = (await prisma.user.findUnique({ where: { id: currentUser.id } })) as any;
+        if (user && !user.canSeeOthersTasks) {
+            where.assigneeId = currentUser.id;
+        }
+    }
+
     return await prisma.task.findMany({
-        where: {
-            status: {
-                not: "COMPLETED"
-            },
-            parentId: null
-        },
+        where,
         orderBy: [
             { positionOrder: 'asc' },
             { id: 'asc' }
         ],
         include: {
+            Creator: { select: { name: true } },
             subtasks: {
                 where: {
                     status: {
@@ -239,7 +302,10 @@ export async function fetchPendingTasks() {
                 orderBy: [
                     { positionOrder: 'asc' },
                     { id: 'asc' }
-                ]
+                ],
+                include: {
+                    Creator: { select: { name: true } }
+                }
             }
         }
     });
@@ -256,7 +322,14 @@ export async function addSubtask(taskId: number, formData: FormData) {
         const lastTask = await prisma.task.findFirst({ orderBy: { id: 'desc' } });
         const nextId = (lastTask?.id || 0) + 1;
 
-        await prisma.task.create({
+        const session = await getServerSession(authOptions) as any;
+        const currentUser = session?.user;
+
+        if (!currentUser) {
+            return { error: "Usuário não autenticado." };
+        }
+
+        const newSubtask = await prisma.task.create({
             data: {
                 taskRef: `#CTRL-${nextId}`,
                 title: title.trim(),
@@ -264,9 +337,18 @@ export async function addSubtask(taskId: number, formData: FormData) {
                 deadline: parentTask.deadline,
                 assignee: parentTask.assignee || "Gabriel",
                 parentId: taskId,
-                positionOrder: 0
+                positionOrder: 0,
+                createdById: currentUser.id
             }
         });
+
+        await sendTelegramAlert({
+            task: newSubtask,
+            type: 'CREATED',
+            user: currentUser.name || "Sistema",
+            customMessage: `Subtarefa de: ${parentTask.title}`
+        });
+
         revalidatePath('/');
         return { success: true };
     } catch {
@@ -275,10 +357,20 @@ export async function addSubtask(taskId: number, formData: FormData) {
 }
 
 export async function toggleSubtask(id: number, completed: boolean) {
-    await prisma.task.update({
+    const updatedSubtask = await prisma.task.update({
         where: { id },
         data: { status: completed ? "COMPLETED" : "PENDING" }
     });
+
+    const session = await getServerSession(authOptions) as any;
+    const editorName = session?.user?.name || "Sistema";
+
+    await sendTelegramAlert({
+        task: updatedSubtask,
+        type: completed ? 'COMPLETED' : 'REACTIVATED',
+        user: editorName
+    });
+
     revalidatePath('/');
 }
 
@@ -315,12 +407,21 @@ export async function deleteTask(id: number) {
             where: { id }
         });
 
-        if ((task as any)?.googleEventId) {
-            await deleteGoogleEvent((task as any).googleEventId);
-        }
         if ((task as any)?.googleTaskId) {
             await deleteGoogleTask((task as any).googleTaskId);
         }
+
+        const session = await getServerSession(authOptions) as any;
+        const editorName = session?.user?.name || "Sistema";
+
+        if (task) {
+            await sendTelegramAlert({
+                task,
+                type: 'DELETED',
+                user: editorName
+            });
+        }
+
         revalidatePath('/');
         return { success: true };
     } catch (err) {
@@ -330,15 +431,31 @@ export async function deleteTask(id: number) {
 }
 
 export async function fetchArchivedTasks() {
+    const session = await getServerSession(authOptions) as any;
+    const currentUser = session?.user;
+
+    const where: any = {
+        status: "COMPLETED",
+        parentId: null
+    };
+
+    if (currentUser && currentUser.role !== 'ADMIN') {
+        const user = (await prisma.user.findUnique({ where: { id: currentUser.id } })) as any;
+        if (user && !user.canSeeOthersTasks) {
+            where.assigneeId = currentUser.id;
+        }
+    }
+
     return await prisma.task.findMany({
-        where: {
-            status: "COMPLETED",
-            parentId: null
-        },
+        where,
         orderBy: { updatedAt: 'desc' },
         include: {
+            Creator: { select: { name: true } },
             subtasks: {
-                orderBy: { updatedAt: 'desc' }
+                orderBy: { updatedAt: 'desc' },
+                include: {
+                    Creator: { select: { name: true } }
+                }
             }
         }
     });

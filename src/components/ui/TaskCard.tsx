@@ -61,7 +61,14 @@ function SubtaskRow({ sub, sIndex, rank }: { sub: Task; sIndex: number; rank: nu
     );
 }
 
+import { useSession } from "next-auth/react";
+
 export function TaskCard({ task, urgency, rank }: { task: TaskWithSubtasks, urgency: number, rank: number }) {
+    const { data: session } = useSession();
+    const currentUser = session?.user as any;
+    const isMember = currentUser?.role === 'MEMBER';
+
+    // ... existing logic ...
     const hoursLeft = (new Date(task.deadline).getTime() - new Date().getTime()) / 3600000;
     const formRef = useRef<HTMLFormElement>(null);
     const [isEditing, setIsEditing] = useState(false);
@@ -140,7 +147,17 @@ export function TaskCard({ task, urgency, rank }: { task: TaskWithSubtasks, urge
                 <form action={async (formData) => { await updateTask(task.id, formData); setIsEditing(false); }} className="flex flex-col gap-2 pl-8 pr-2 pb-2">
                     <textarea name="title" defaultValue={task.title} className="w-full bg-white border border-slate-200 text-sm font-code text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-blue-400 rounded-sm px-2 py-1.5 shadow-sm min-h-[44px] max-h-[300px] resize-y" required autoComplete="off" rows={2} />
                     <div className="flex flex-wrap items-center gap-2 mt-1">
-                        <input type="text" name="assignee" defaultValue={(task as any).assignee as string} placeholder="User" className="w-20 bg-white border border-slate-200 text-xs font-mono font-bold text-slate-600 outline-none uppercase text-center rounded-sm px-1 py-1.5 shadow-sm" required title="Responsável" />
+                        <input
+                            type="text"
+                            name="assignee"
+                            defaultValue={(task as any).assignee as string}
+                            placeholder="User"
+                            className="w-20 bg-white border border-slate-200 text-xs font-mono font-bold text-slate-600 outline-none uppercase text-center rounded-sm px-1 py-1.5 shadow-sm disabled:opacity-75"
+                            required
+                            title="Responsável"
+                            disabled={isMember}
+                        />
+                        {isMember && <input type="hidden" name="assignee" value={(task as any).assignee || ""} />}
                         <select name="priority" defaultValue={task.priority} className="w-24 bg-white border border-slate-200 text-xs font-mono text-slate-600 outline-none rounded-sm px-2 py-1.5 shadow-sm" required>
                             <option value="1">P1 [CRI]</option>
                             <option value="2">P2 [ALT]</option>

@@ -2,15 +2,17 @@
 import { Task } from '@prisma/client';
 import { calculateUrgency } from '@/lib/utils/urgency';
 
-type TaskWithSubtasks = Task & { subtasks?: Task[] };
+type TaskWithSubtasks = Task & { subtasks?: Task[], Creator?: { name: string } };
 
 interface TaskModalProps {
+    // ... existing props ...
     task: TaskWithSubtasks;
     onClose: () => void;
     now: Date;
 }
 
 export function TaskModal({ task, onClose, now }: TaskModalProps) {
+    // ... existing logic ... (matching for tool)
     const hoursLeft = (new Date(task.deadline).getTime() - now.getTime()) / 3600000;
     const urgency = calculateUrgency(task.priority, task.deadline, now);
 
@@ -94,20 +96,16 @@ export function TaskModal({ task, onClose, now }: TaskModalProps) {
                         </div>
 
                         <div className="flex flex-col gap-1">
-                            <span className="text-[10px] font-mono text-slate-400 uppercase tracking-widest">Prazo Final</span>
-                            <div className={`text-sm font-mono ${timeColor}`}>
-                                {taskDateFormatted} <span className="text-xs text-slate-500">{taskTimeFormatted}</span>
+                            <span className="text-[10px] font-mono text-slate-400 uppercase tracking-widest">Criado por</span>
+                            <div className="text-sm font-medium text-slate-600">
+                                {task.Creator?.name || 'Sistema'}
                             </div>
                         </div>
 
                         <div className="flex flex-col gap-1">
-                            <span className="text-[10px] font-mono text-slate-400 uppercase tracking-widest">Tempo Restante</span>
+                            <span className="text-[10px] font-mono text-slate-400 uppercase tracking-widest">Prazo Final</span>
                             <div className={`text-sm font-mono ${timeColor}`}>
-                                {hoursLeft <= 0 ? (
-                                    <span className="bg-red-100 text-red-700 px-1.5 py-0.5 rounded border border-red-200 font-bold text-xs uppercase">Esgotado</span>
-                                ) : (
-                                    `${hoursLeft.toFixed(1)}h`
-                                )}
+                                {taskDateFormatted} <span className="text-xs text-slate-500">{taskTimeFormatted}</span>
                             </div>
                         </div>
 

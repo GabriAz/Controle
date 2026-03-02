@@ -29,8 +29,11 @@ export async function createUser(data: FormData) {
 
     const passwordHash = await bcrypt.hash(password, 10);
 
+    const canSeeOthersTasksForm = data.get("canSeeOthersTasks");
+    const canSeeOthersTasks = canSeeOthersTasksForm === "on" || canSeeOthersTasksForm === "true";
+
     await prisma.user.create({
-      data: { name, email, passwordHash, role, active: true },
+      data: { name, email, passwordHash, role, active: true, canSeeOthersTasks },
     });
 
     return { success: true };
@@ -65,6 +68,11 @@ export async function updateUser(id: string, data: FormData) {
     const updateData: any = { name, email, role };
     if (activeStr) {
       updateData.active = activeStr === "true";
+    }
+
+    const canSeeOthersTasksForm = data.get("canSeeOthersTasks");
+    if (canSeeOthersTasksForm !== null) {
+      updateData.canSeeOthersTasks = canSeeOthersTasksForm === "true" || canSeeOthersTasksForm === "on";
     }
 
     if (password) {

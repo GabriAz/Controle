@@ -1,10 +1,15 @@
 "use client"
-import { useActionState, useEffect, useRef } from 'react';
+import { useActionState, useEffect, useRef, useState } from 'react';
 import { createTaskAction } from '@/lib/actions';
+import { useSession } from "next-auth/react";
 
 export function QuickInput({ users = [] }: { users?: { id: string; name: string }[] }) {
+    const { data: session } = useSession();
     const [state, action, pending] = useActionState(createTaskAction, null);
     const formRef = useRef<HTMLFormElement>(null);
+
+    const currentUser = session?.user as any;
+    const isMember = currentUser?.role === 'MEMBER';
 
     useEffect(() => {
         if (state?.success) {
@@ -37,12 +42,21 @@ export function QuickInput({ users = [] }: { users?: { id: string; name: string 
                 <div className="w-full flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-y-3 gap-x-2 mt-2">
                     <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-2 flex-1 w-full shrink-0">
                         <div className="w-full sm:w-24 bg-slate-50 border border-slate-200 rounded-md overflow-hidden relative h-9 shrink-0 focus-within:border-blue-400 hover:bg-slate-100 transition-colors">
-                            <select name="assigneeId" className="w-full h-full appearance-none bg-transparent text-[11px] font-mono font-bold text-slate-800 outline-none cursor-pointer pl-2 pr-6" required title="Responsável">
+                            <select
+                                name="assigneeId"
+                                className="w-full h-full appearance-none bg-transparent text-[11px] font-mono font-bold text-slate-800 outline-none cursor-pointer pl-2 pr-6 disabled:opacity-70"
+                                required
+                                title="Responsável"
+                                defaultValue={isMember ? currentUser.id : ""}
+                                disabled={isMember || pending}
+                            >
                                 <option value="">User...</option>
                                 {users.map(u => (
                                     <option key={u.id} value={u.id}>{u.name}</option>
                                 ))}
                             </select>
+                            {/* Se for membro, precisamos enviar o ID via campo oculto pois o select disabled não envia no Form */}
+                            {isMember && <input type="hidden" name="assigneeId" value={currentUser.id} />}
                             <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-slate-500">
                                 <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg>
                             </div>

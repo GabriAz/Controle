@@ -9,6 +9,7 @@ type User = {
     email: string;
     role: string;
     active: boolean;
+    canSeeOthersTasks: boolean;
 };
 
 export function UserTableRow({ user }: { user: User }) {
@@ -76,6 +77,10 @@ export function UserTableRow({ user }: { user: User }) {
                                     </select>
                                 </div>
                             </div>
+                            <div className="flex items-center gap-2">
+                                <input type="checkbox" name="canSeeOthersTasks" defaultChecked={user.canSeeOthersTasks} className="w-4 h-4 accent-slate-900 rounded" />
+                                <label className="text-[10px] font-mono font-bold text-slate-600 uppercase cursor-pointer">Inspecionar outros (ver tudo)</label>
+                            </div>
                         </div>
                         <div className="flex justify-end gap-2 mt-2">
                             <button type="button" onClick={() => setIsEditing(false)} className="px-3 py-1.5 text-xs font-mono font-bold text-slate-500 hover:text-slate-800 bg-white border border-slate-200 rounded">Cancelar</button>
@@ -122,14 +127,14 @@ export function UserTableRow({ user }: { user: User }) {
         <tr className="border-b border-slate-100 hover:bg-white transition-colors group">
             <td className="p-3 text-[11px] font-mono font-bold text-slate-800">{user.name}</td>
             <td className="p-3 text-[11px] font-mono text-slate-500">{user.email}</td>
-            <td className="p-3">
-                <span className={`px-2 py-0.5 rounded-[2px] text-[9px] font-mono font-bold uppercase ${user.role === 'ADMIN' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-200 text-slate-600'}`}>
-                    {user.role}
+            <td className="p-3 text-center">
+                <span className={`px-2 py-0.5 rounded-[2px] text-[9px] font-mono font-bold uppercase ${user.canSeeOthersTasks ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-400'}`}>
+                    {user.canSeeOthersTasks ? 'SIM' : 'NÃO'}
                 </span>
             </td>
             <td className="p-3">
-                <span className={`px-2 py-0.5 rounded-[2px] text-[9px] font-mono font-bold uppercase ${user.active ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>
-                    {user.active ? 'ACTIVE' : 'BLOCKED'}
+                <span className={`px-2 py-0.5 rounded-[2px] text-[9px] font-mono font-bold uppercase ${user.role === 'ADMIN' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-200 text-slate-600'}`}>
+                    {user.role}
                 </span>
             </td>
             <td className="p-3 text-right opacity-0 group-hover:opacity-100 transition-opacity">

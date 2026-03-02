@@ -1,18 +1,36 @@
-import { prisma } from '@/lib/prisma';
-import Link from 'next/link';
+import { prisma } from "@/lib/prisma";
+import Link from "next/link";
+import { getServerSession } from "next-auth/next";
+import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 
 export const dynamic = 'force-dynamic';
 
 export default async function ReportsPage({ searchParams }: { searchParams?: { [key: string]: string | string[] | undefined } }) {
-    const users = await prisma.user.findMany({
+    const session = await getServerSession(authOptions) as any;
+    const currentUser = session?.user;
+
+    // Fetch user permissions if not in session, or trust session if updated
+    // To be safe, let's fetch from DB since it's a server component
+    const dbUser = currentUser ? await prisma.user.findUnique({ where: { id: currentUser.id } }) : null;
+    const canSeeOthers = dbUser?.role === 'ADMIN' || dbUser?.canSeeOthersTasks !== false;
+
+    let users = await prisma.user.findMany({
         where: { active: true },
         select: { id: true, name: true },
         orderBy: { name: 'asc' }
     });
 
+    if (!canSeeOthers && currentUser) {
+        users = users.filter(u => u.id === currentUser.id);
+    }
+
     // Handle Promises on Next 15+ searchParams dynamically
     const params = await searchParams;
-    const userId = params?.user as string | undefined;
+    const userIdRaw = params?.user as string | undefined;
+
+    // Force userId if restricted
+    const userId = (!canSeeOthers && currentUser) ? currentUser.id : userIdRaw;
+
     const startDateStr = params?.start as string | undefined;
     const endDateStr = params?.end as string | undefined;
 
@@ -22,7 +40,6 @@ export default async function ReportsPage({ searchParams }: { searchParams?: { [
     if (startDateStr && endDateStr) {
         queryExecuted = true;
         const start = new Date(startDateStr);
-        // Usa o timezone base zerado
         start.setHours(0, 0, 0, 0);
 
         const end = new Date(endDateStr);
@@ -38,6 +55,8 @@ export default async function ReportsPage({ searchParams }: { searchParams?: { [
 
         if (userId && userId !== 'all') {
             whereClause.assigneeId = userId;
+        } else if (!canSeeOthers && currentUser) {
+            whereClause.assigneeId = currentUser.id;
         }
 
         tasks = await prisma.task.findMany({
