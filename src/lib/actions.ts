@@ -7,6 +7,7 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 
 export async function createTaskAction(prevState: unknown, formData: FormData) {
+    console.log(`\n\n[ACTION TRIGGERED] => createTaskAction called at ${new Date().toISOString()} \n\n`);
     const title = formData.get('title') as string;
     const priorityStr = formData.get('priority') as string;
     const dateStr = formData.get('date') as string;
@@ -22,12 +23,12 @@ export async function createTaskAction(prevState: unknown, formData: FormData) {
     const priority = parseInt(priorityStr, 10);
     const deadline = new Date(`${dateStr}T${timeStr}:00`);
 
-    // Generate taskRef (#ANT-102 etc)
+    // Generate taskRef (#CTRL-102 etc)
     const lastTask = await prisma.task.findFirst({
         orderBy: { id: 'desc' }
     });
     const nextId = (lastTask?.id || 0) + 1;
-    const taskRef = `#ANT-${nextId}`;
+    const taskRef = `#CTRL-${nextId}`;
 
     // Get User Name to preserve legacy text field
     let assigneeName = null;
@@ -257,7 +258,7 @@ export async function addSubtask(taskId: number, formData: FormData) {
 
         await prisma.task.create({
             data: {
-                taskRef: `#ANT-${nextId}`,
+                taskRef: `#CTRL-${nextId}`,
                 title: title.trim(),
                 priority: parentTask.priority,
                 deadline: parentTask.deadline,
