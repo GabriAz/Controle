@@ -3,6 +3,8 @@ import { prisma } from '@/lib/prisma';
 import { revalidatePath } from 'next/cache';
 import { createGoogleEvent, updateGoogleEvent, deleteGoogleEvent } from '@/lib/google-calendar';
 import { createGoogleTask, updateGoogleTask, deleteGoogleTask } from '@/lib/google-tasks';
+import { getServerSession } from "next-auth/next";
+import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 
 export async function createTaskAction(prevState: unknown, formData: FormData) {
     const title = formData.get('title') as string;
@@ -62,6 +64,29 @@ export async function createTaskAction(prevState: unknown, formData: FormData) {
             });
         }
 
+        // Telegram Notification on Creation
+        const session = await getServerSession(authOptions) as any;
+        const creatorName = session?.user?.name || "Sistema";
+        const botToken = process.env.TELEGRAM_BOT_TOKEN;
+        const chatId = process.env.TELEGRAM_CHAT_ID;
+
+        if (botToken && chatId) {
+            try {
+                const formattedDate = new Date(deadline).toLocaleString('pt-BR');
+                await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        chat_id: chatId,
+                        text: `🆕 *Nova Tarefa Adicionada*\n\n*${taskRef}*: ${title}\n*Criada por*: ${creatorName}\n*Responsável*: ${assigneeName || 'Não atribuído'}\n*Prazo*: ${formattedDate}`,
+                        parse_mode: 'Markdown'
+                    })
+                });
+            } catch (e) {
+                console.error("Failed to send telegram creation alert", e);
+            }
+        }
+
         revalidatePath('/');
         return { success: true };
     } catch (err) {
@@ -84,6 +109,7 @@ export async function updateTask(id: number, formData: FormData) {
     const dateStr = formData.get('date') as string;
     const timeStr = formData.get('time') as string;
     const assigneeIdStr = formData.get('assigneeId') as string;
+    const manualAssignee = formData.get('assignee') as string;
 
     if (!title || !priorityStr || !dateStr || !timeStr) {
         return { error: "Todos os campos são obrigatórios." };
@@ -91,11 +117,11 @@ export async function updateTask(id: number, formData: FormData) {
 
     const assigneeId = assigneeIdStr ? assigneeIdStr : null;
 
-    // Get User Name to preserve legacy text field
-    let assigneeName = null;
+    // Get User Name to preserve legacy text field if ID is passed
+    let assigneeName = manualAssignee || null;
     if (assigneeId) {
         const u = await prisma.user.findUnique({ where: { id: assigneeId } });
-        assigneeName = u?.name || null;
+        if (u?.name) assigneeName = u.name;
     }
 
     const priority = parseInt(priorityStr, 10);

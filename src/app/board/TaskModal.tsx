@@ -30,6 +30,9 @@ export function TaskModal({ task, onClose, now }: TaskModalProps) {
     const taskTimeFormatted = new Date(task.deadline).toTimeString().substring(0, 5);
     const createdDate = new Date(task.createdAt).toLocaleDateString('pt-BR');
 
+    // Tolerance of 2 seconds to avoid false-alarms on creation DB lag
+    const isEdited = new Date(task.updatedAt).getTime() - new Date(task.createdAt).getTime() > 2000;
+
     // Calculate subtask completion
     const totalSubs = task.subtasks?.length || 0;
     const completedSubs = task.subtasks?.filter(s => s.status === 'COMPLETED').length || 0;
@@ -46,7 +49,7 @@ export function TaskModal({ task, onClose, now }: TaskModalProps) {
                 {/* Header Section */}
                 <div className="flex justify-between items-start p-6 border-b border-slate-100 bg-slate-50/50">
                     <div className="flex-1 pr-4">
-                        <div className="flex items-center gap-2 mb-2">
+                        <div className="flex items-center flex-wrap gap-2 mb-2">
                             <span className="text-[10px] font-mono bg-white border border-slate-200 text-slate-500 px-1.5 py-0.5 rounded shadow-sm">
                                 {task.taskRef}
                             </span>
@@ -56,6 +59,11 @@ export function TaskModal({ task, onClose, now }: TaskModalProps) {
                             <span className="text-[10px] font-mono bg-white border border-slate-200 text-slate-500 px-1.5 py-0.5 rounded shadow-sm">
                                 STATUS: {task.status}
                             </span>
+                            {isEdited && (
+                                <span className="text-[10px] font-mono bg-indigo-50 border border-indigo-200 text-indigo-600 px-1.5 py-0.5 rounded shadow-sm font-bold tracking-wide" title="Essa tarefa foi alterada após a criação">
+                                    ✏️ EDITADA
+                                </span>
+                            )}
                         </div>
                         <h2 className="text-xl font-bold text-slate-900 font-code leading-tight mt-1">{task.title}</h2>
                     </div>
