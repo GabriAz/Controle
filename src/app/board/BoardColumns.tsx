@@ -2,13 +2,14 @@
 import { Task } from '@prisma/client';
 import { calculateUrgency } from '@/lib/utils/urgency';
 import { useEffect, useState } from 'react';
+import { TaskModal } from './TaskModal';
 
 type TaskWithSubtasks = Task & { subtasks?: Task[] };
 
-function BoardCard({ task, urgency }: { task: TaskWithSubtasks, urgency: number }) {
+function BoardCard({ task, urgency, onTaskClick }: { task: TaskWithSubtasks, urgency: number, onTaskClick: (t: TaskWithSubtasks) => void }) {
     const hoursLeft = (new Date(task.deadline).getTime() - new Date().getTime()) / 3600000;
 
-    let bgClass = "bg-white border hover:border-slate-300 border-slate-200";
+    let bgClass = "bg-white border hover:border-slate-300 border-slate-200 cursor-pointer";
     let titleClass = "text-slate-800";
     let priorColor = "text-slate-500";
 
@@ -18,10 +19,10 @@ function BoardCard({ task, urgency }: { task: TaskWithSubtasks, urgency: number 
     if (task.priority === 3) priorColor = "text-blue-500";
 
     if (hoursLeft <= 0.5) {
-        bgClass = "bg-red-50 border-red-200";
+        bgClass = "bg-red-50 border-red-200 cursor-pointer";
         titleClass = "text-red-700";
     } else if (hoursLeft <= 3) {
-        bgClass = "bg-orange-50/50 border-orange-200";
+        bgClass = "bg-orange-50/50 border-orange-200 cursor-pointer";
         titleClass = "text-orange-700";
     }
 
@@ -29,7 +30,10 @@ function BoardCard({ task, urgency }: { task: TaskWithSubtasks, urgency: number 
     const taskTimeFormatted = new Date(task.deadline).toTimeString().substring(0, 5);
 
     return (
-        <div className={`p-3 rounded-md shadow-[0_1px_2px_rgba(0,0,0,0.05)] transition-colors ${bgClass} flex flex-col gap-1 group`}>
+        <div
+            className={`p-3 rounded-md shadow-[0_1px_2px_rgba(0,0,0,0.05)] transition-colors ${bgClass} flex flex-col gap-1 group`}
+            onClick={() => onTaskClick(task)}
+        >
             <div className="flex items-start justify-between gap-2 overflow-hidden w-full">
                 <div className="flex items-start gap-1">
                     <span className={`text-[9px] font-mono font-bold ${priorColor} mt-0.5`}>[{pLabel}]</span>
@@ -65,9 +69,11 @@ function BoardCard({ task, urgency }: { task: TaskWithSubtasks, urgency: number 
 
 export function BoardColumns({ todayTasks, weekTasks, monthTasks, laterTasks }: { todayTasks: TaskWithSubtasks[], weekTasks: TaskWithSubtasks[], monthTasks: TaskWithSubtasks[], laterTasks: TaskWithSubtasks[] }) {
     const [now, setNow] = useState(new Date());
+    const [selectedTask, setSelectedTask] = useState<TaskWithSubtasks | null>(null);
 
     useEffect(() => {
         const interval = setInterval(() => setNow(new Date()), 60000);
+
         return () => clearInterval(interval);
     }, []);
 
@@ -82,7 +88,7 @@ export function BoardColumns({ todayTasks, weekTasks, monthTasks, laterTasks }: 
                     <div className="text-[10px] font-mono text-center text-slate-400 py-6 uppercase tracking-widest border border-dashed border-slate-300 rounded bg-slate-50/50">Nenhuma Tarefa</div>
                 ) : (
                     tasks.map(t => (
-                        <BoardCard key={t.id} task={t} urgency={calculateUrgency(t.priority, t.deadline, now)} />
+                        <BoardCard key={t.id} task={t} urgency={calculateUrgency(t.priority, t.deadline, now)} onTaskClick={setSelectedTask} />
                     ))
                 )}
             </div>
@@ -95,6 +101,14 @@ export function BoardColumns({ todayTasks, weekTasks, monthTasks, laterTasks }: 
             <Column title="Esta Semana" tasks={weekTasks} color="text-orange-600" />
             <Column title="Este Mês" tasks={monthTasks} color="text-blue-600" />
             {(laterTasks.length > 0) && <Column title="Futuro" tasks={laterTasks} color="text-slate-500" />}
+
+            {selectedTask && (
+                <TaskModal
+                    task={selectedTask}
+                    onClose={() => setSelectedTask(null)}
+                    now={now}
+                />
+            )}
         </div>
     );
 }
