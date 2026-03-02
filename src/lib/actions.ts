@@ -72,8 +72,9 @@ export async function createTaskAction(prevState: unknown, formData: FormData) {
 
         if (botToken && chatId) {
             try {
+                console.log(`[TELEGRAM DEBUG] Attempting to send creation alert. Token starts with: ${botToken.substring(0, 5)}...`);
                 const formattedDate = new Date(deadline).toLocaleString('pt-BR');
-                await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+                const response = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -82,9 +83,13 @@ export async function createTaskAction(prevState: unknown, formData: FormData) {
                         parse_mode: 'Markdown'
                     })
                 });
+                const responseData = await response.json();
+                console.log(`[TELEGRAM DEBUG] API Response Status: ${response.status}`, responseData);
             } catch (e) {
-                console.error("Failed to send telegram creation alert", e);
+                console.error("[TELEGRAM DEBUG] Fetch Failed to send creation alert", e);
             }
+        } else {
+            console.log(`[TELEGRAM DEBUG] Missing Env! botToken: ${!!botToken}, chatId: ${!!chatId}`);
         }
 
         revalidatePath('/');
