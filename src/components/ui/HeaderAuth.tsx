@@ -2,6 +2,7 @@
 
 import { useSession, signOut } from "next-auth/react";
 import Link from "next/link";
+import Image from "next/image";
 import { useState, useRef, useEffect } from "react";
 
 export function HeaderAuth() {
@@ -24,8 +25,14 @@ export function HeaderAuth() {
     return (
         <header className="fixed top-0 left-0 w-full h-12 bg-white/80 backdrop-blur-md border-b border-slate-100 flex items-center justify-between px-4 md:px-8 z-50">
             <div className="flex items-center gap-4">
-                <Link href="/" className="text-[14px] font-black tracking-tight text-slate-800 border-2 border-slate-900 px-1.5 leading-none py-0.5 hover:bg-slate-900 hover:text-white transition-colors">
-                    GA
+                <Link href="/" className="hover:opacity-80 transition-opacity">
+                    <Image
+                        src="/logo.png"
+                        alt="Controle Logo"
+                        width={100}
+                        height={32}
+                        className="h-7 w-auto object-contain"
+                    />
                 </Link>
                 {/* @ts-expect-error - session.user.role may not be typed globally */}
                 {session.user?.role === "ADMIN" && (

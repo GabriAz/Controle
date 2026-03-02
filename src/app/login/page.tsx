@@ -4,6 +4,8 @@ import { signIn } from "next-auth/react";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
+import Image from "next/image";
+
 export default function LoginPage() {
     const router = useRouter();
     const [email, setEmail] = useState("");
@@ -35,8 +37,14 @@ export default function LoginPage() {
         <div className="min-h-screen bg-white flex flex-col items-center justify-center p-4 antialiased">
             <div className="w-full max-w-sm">
                 <div className="flex flex-col items-center mb-10 text-center">
-                    <h1 className="text-2xl font-black tracking-tight text-slate-900 border-2 border-slate-900 px-3 py-1 mb-2">GA</h1>
-                    <p className="text-[10px] font-mono font-bold tracking-[0.2em] text-slate-400 uppercase">Gabriel Azevedo</p>
+                    <Image
+                        src="/logo.png"
+                        alt="Controle Logo"
+                        width={240}
+                        height={80}
+                        className="mb-4 object-contain h-auto"
+                        priority
+                    />
                 </div>
 
                 <form onSubmit={handleSubmit} className="flex flex-col gap-4">

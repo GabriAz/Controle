@@ -15,8 +15,13 @@ const geistMono = Geist_Mono({
 import { Providers } from "@/components/Providers";
 
 export const metadata: Metadata = {
-  title: "Controle > GA",
+  title: "Controle | Sistema de Alta Densidade",
   description: "Gabriel Azevedo Operations Center",
+  icons: {
+    icon: "/favicon.ico",
+    shortcut: "/favicon.ico",
+    apple: "/favicon.ico",
+  },
 };
 
 export default function RootLayout({
