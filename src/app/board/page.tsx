@@ -46,6 +46,15 @@ export default async function BoardPage() {
                     monthTasks={monthTasks}
                     laterTasks={laterTasks}
                 />
+
+                <footer className="mt-16 w-full text-center pb-4 opacity-60 hover:opacity-100 transition-opacity">
+                    <p className="text-[10px] font-mono text-slate-400">
+                        Mantendo tudo sob o <span className="font-bold text-slate-500 tracking-widest">CONTROLE</span> de{" "}
+                        <a href="https://gabrielazevedo.com.br" target="_blank" rel="noopener noreferrer" className="text-slate-500 hover:text-blue-600 transition-colors underline decoration-slate-200 hover:decoration-blue-300 underline-offset-4 font-bold">
+                            Gabriel Guimarães
+                        </a>
+                    </p>
+                </footer>
             </main>
         </div>
     );

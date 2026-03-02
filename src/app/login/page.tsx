@@ -89,6 +89,13 @@ export default function LoginPage() {
 
                 <p className="mt-8 text-center text-[9px] font-mono text-slate-300">
                     PROTEGIDO • ACESSO RESTRITO
+                    <br />
+                    <span className="mt-6 block opacity-50 hover:opacity-100 transition-opacity">
+                        Mantendo tudo sob o <span className="font-bold text-slate-400 tracking-widest">CONTROLE</span> de{" "}
+                        <a href="https://gabrielazevedo.com.br" target="_blank" rel="noopener noreferrer" className="text-slate-400 hover:text-slate-500 transition-colors underline decoration-slate-200 hover:decoration-slate-300 underline-offset-4 font-bold">
+                            Gabriel Guimarães
+                        </a>
+                    </span>
                 </p>
             </div>
         </div>
