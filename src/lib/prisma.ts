@@ -1,5 +1,8 @@
 import { PrismaClient } from "@prisma/client";
 
+// Ensure system timezone is set to Brazil/Sao Paulo
+process.env.TZ = 'America/Sao_Paulo';
+
 const prismaClientSingleton = () => {
     return new PrismaClient();
 };

@@ -63,6 +63,7 @@ export const authOptions = {
         signIn: "/login", // Redirecionador Nativo pra Pág Personalizada
     },
     secret: process.env.NEXTAUTH_SECRET || "controle_super_secret_dev_key_123",
+    debug: true,
 };
 
 const handler = NextAuth(authOptions);
